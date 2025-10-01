@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Gestionnaire de consignes — Pro</title>
+  <title>Gestionnaire de consignes</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .content-editable{min-height:120px}
@@ -13,15 +13,12 @@
   </style>
 </head>
 <body class="bg-slate-50 text-slate-900">
-  <!-- Header -->
+  <!-- Header (sans logo/favicons) -->
   <header class="sticky top-0 z-20 bg-white/80 backdrop-blur border-b border-slate-200">
     <div class="max-w-7xl mx-auto px-5 py-3 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <img src="logo.png" alt="Logo" class="w-7 h-7" onerror="this.style.display='none'"/>
-        <h1 class="text-lg md:text-xl font-semibold tracking-tight">Gestionnaire de consignes</h1>
-      </div>
+      <h1 class="text-lg md:text-xl font-semibold tracking-tight">Gestionnaire de consignes</h1>
       <nav class="flex items-center gap-2 text-sm">
-        <a href="index.html" class="inline-flex items-center px-3 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Voir l’affichage</a>
+        <a href="../" class="inline-flex items-center px-3 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Voir l’affichage</a>
         <button id="exportJson" class="inline-flex items-center px-3 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Exporter JSON</button>
         <label class="inline-flex items-center px-3 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer">Importer JSON
           <input type="file" id="importJson" accept="application/json" class="hidden" />
@@ -141,7 +138,7 @@
     const db = getDatabase(app);
 
     // ===== Utils =====
-    const $ = (s, r=document) => r.querySelector(s);
+    const $  = (s, r=document) => r.querySelector(s);
     const $$ = (s, r=document) => [...r.querySelectorAll(s)];
     const toast = $('#toast');
     function showToast(text, ok=true){
@@ -168,8 +165,7 @@
     // par défaut : maintenant pour startAt
     startAt.value = toLocalDatetimeValue(new Date());
 
-    // Editeur simple
-    form.previousElementSibling; // no-op to keep structure clear
+    // Éditeur simple
     document.addEventListener('click', (e) => {
       const btn = e.target.closest('button[data-cmd]');
       if (!btn) return;
@@ -210,29 +206,38 @@
     const empty = $('#empty');
     const search = $('#search');
     const chips = $$('[data-filter]');
-    let allItems = [];  // toutes les consignes
+    let allItems = [];      // toutes les consignes
     let currentFilter = 'all';
     let searchTerm = '';
 
+    // Filtres (chips)
     chips.forEach(ch => {
       ch.addEventListener('click', () => {
         chips.forEach(c => c.className = 'px-3 py-1 rounded-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-50');
         ch.className = 'px-3 py-1 rounded-full border border-slate-300 bg-slate-900 text-white';
-        currentFilter = ch.dataset.filter;
+        currentFilter = ch.dataset.filter || 'all';
         render();
       });
     });
 
+    // Recherche
     search.addEventListener('input', (e) => {
-      searchTerm = e.target.value.toLowerCase();
+      searchTerm = e.target.value.toLowerCase().trim();
       render();
     });
 
-  onValue(ref(db, 'consignes'), (snap) => {
-  const data = snap.val() || {};
-  const items = Object.entries(data).map(([id, v]) => ({ id, ...v }));
-  render(items);
-});
+    // Lecture Firebase
+    onValue(ref(db, 'consignes'), (snap) => {
+      const data = snap.val() || {};
+      allItems = Object.entries(data).map(([id, v]) => ({ id, ...v }));
+      // Tri récents → anciens (tombe en secours sur order)
+      allItems.sort((a,b) => (b.createdAt ?? b.order ?? 0) - (a.createdAt ?? a.order ?? 0));
+      console.log('[Gestion] Chargées :', allItems.length);
+      render();
+    }, (err) => {
+      console.error('[Gestion] Erreur lecture DB :', err);
+      showToast('Erreur lecture Firebase', false);
+    });
 
     function passFilter(it) {
       const now = Date.now();
@@ -348,7 +353,6 @@
           showToast('Modifications enregistrées ✅');
           li.animate([{boxShadow:'0 0 0 0 rgba(16,185,129,0)'},{boxShadow:'0 0 0 8px rgba(16,185,129,0.35)'},{boxShadow:'0 0 0 0 rgba(16,185,129,0)'}],{duration:600,easing:'ease-out'});
         } else if (action === 'delete') {
-          // Ouvre la modale
           toDeleteId = it.id;
           modalDel.style.display = 'flex';
         }
@@ -358,7 +362,7 @@
     }
 
     // ===== Export / Import =====
-    $('#exportJson').addEventListener('click', async () => {
+    document.getElementById('exportJson').addEventListener('click', async () => {
       const { get } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
       const snap = await get(ref(db, 'consignes'));
       const data = snap.val() || {};
@@ -369,7 +373,7 @@
       a.click();
     });
 
-    $('#importJson').addEventListener('change', async (e) => {
+    document.getElementById('importJson').addEventListener('change', async (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
       const text = await file.text();
