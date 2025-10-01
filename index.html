@@ -228,11 +228,9 @@
       render();
     });
 
-   onValue(ref(db, 'consignes'), (snap) => {
+  onValue(ref(db, 'consignes'), (snap) => {
   const data = snap.val() || {};
   const items = Object.entries(data).map(([id, v]) => ({ id, ...v }));
-  // Tri par date de création, du plus récent au plus ancien
-  items.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
   render(items);
 });
 
