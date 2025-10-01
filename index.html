@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gestionnaire de consignes — Pro</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .content-editable{min-height:120px}
+    .pill-color{width:6px;border-radius:9999px}
+    .toast{position:fixed;right:1.5rem;bottom:1.5rem;z-index:60;display:none}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.5);backdrop-filter:blur(4px);display:none;z-index:50}
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <!-- Header -->
+  <header class="sticky top-0 z-20 bg-white/80 backdrop-blur border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-5 py-3 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="logo.png" alt="Logo" class="w-7 h-7" onerror="this.style.display='none'"/>
+        <h1 class="text-lg md:text-xl font-semibold tracking-tight">Gestionnaire de consignes</h1>
+      </div>
+      <nav class="flex items-center gap-2 text-sm">
+        <a href="index.html" class="inline-flex items-center px-3 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Voir l’affichage</a>
+        <button id="exportJson" class="inline-flex items-center px-3 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Exporter JSON</button>
+        <label class="inline-flex items-center px-3 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 cursor-pointer">Importer JSON
+          <input type="file" id="importJson" accept="application/json" class="hidden" />
+        </label>
+      </nav>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto px-5 py-6 grid lg:grid-cols-3 gap-6">
+    <!-- Colonne gauche : Création -->
+    <section class="lg:col-span-1 bg-white border border-slate-200 rounded-2xl shadow-sm p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-semibold">Nouvelle consigne</h2>
+        <span class="text-xs text-slate-500">Création rapide</span>
+      </div>
+
+      <form id="formAdd" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-slate-700" for="titre">Titre</label>
+          <input id="titre" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-300" placeholder="Ex : Procédure arrivée patient polytraumatisé" required />
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700" for="couleur">Couleur</label>
+            <input id="couleur" type="color" class="h-10 w-full rounded-lg border border-slate-300 p-0" value="#0ea5e9" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700" for="startAt">Début d’affichage</label>
+            <input id="startAt" type="datetime-local" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-300" />
+          </div>
+          <div class="col-span-2">
+            <label class="block text-sm font-medium text-slate-700" for="endAt">Fin d’affichage (optionnel)</label>
+            <input id="endAt" type="datetime-local" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-300" />
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700">Contenu</label>
+          <div class="flex flex-wrap items-center gap-2 mb-2">
+            <button type="button" data-cmd="bold" class="px-2 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50">Gras</button>
+            <button type="button" data-cmd="italic" class="px-2 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50">Italique</button>
+            <button type="button" data-cmd="underline" class="px-2 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50">Souligné</button>
+            <button type="button" data-cmd="insertUnorderedList" class="px-2 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50">• Liste</button>
+            <button type="button" data-cmd="insertOrderedList" class="px-2 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50">1. Liste</button>
+            <button type="button" data-cmd="formatBlock" data-value="h3" class="px-2 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50">Titre section</button>
+            <button type="button" data-cmd="removeFormat" class="px-2 py-1 rounded border border-slate-300 bg-white hover:bg-slate-50">Effacer style</button>
+          </div>
+          <div id="contenu" class="content-editable w-full px-3 py-2 rounded-lg border border-slate-300 bg-white focus:outline-none" contenteditable="true"></div>
+          <p class="text-xs text-slate-500 mt-2">Tu peux ajouter du texte formaté (titres, listes, etc.).</p>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-1">
+          <button type="reset" class="inline-flex items-center px-3 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Réinitialiser</button>
+          <button class="inline-flex items-center px-3 py-2 rounded-lg bg-slate-900 text-white hover:bg-slate-800">Ajouter la consigne</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Colonne droite : Outils + Liste -->
+    <section class="lg:col-span-2 space-y-4">
+      <!-- Outils -->
+      <div class="bg-white border border-slate-200 rounded-2xl shadow-sm p-4">
+        <div class="flex flex-col md:flex-row md:items-center gap-3 justify-between">
+          <div class="flex items-center gap-2">
+            <button data-filter="all" class="px-3 py-1 rounded-full border border-slate-300 bg-slate-900 text-white">Toutes</button>
+            <button data-filter="active" class="px-3 py-1 rounded-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">Actives</button>
+            <button data-filter="planned" class="px-3 py-1 rounded-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">Programmées</button>
+            <button data-filter="ended" class="px-3 py-1 rounded-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-50">Terminées</button>
+          </div>
+          <div class="flex items-center gap-2">
+            <input id="search" class="w-full md:w-80 px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-300" placeholder="Rechercher un titre ou du contenu…" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Liste -->
+      <div id="listWrap" class="space-y-3">
+        <div id="empty" class="bg-white border border-slate-200 rounded-2xl shadow-sm text-center py-12 text-slate-500">Aucune consigne pour le moment.</div>
+        <ul id="list" class="space-y-3"></ul>
+      </div>
+    </section>
+  </main>
+
+  <!-- Toast -->
+  <div id="toast" class="toast bg-slate-900 text-white text-sm px-4 py-3 rounded-xl shadow-lg"></div>
+
+  <!-- Modal suppression -->
+  <div id="modalDel" class="modal-backdrop">
+    <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl mx-4">
+      <h3 class="text-lg font-semibold mb-2">Supprimer la consigne ?</h3>
+      <p class="text-sm text-slate-600 mb-5">Cette action est définitive. La consigne ne sera plus visible dans l’affichage.</p>
+      <div class="flex items-center justify-end gap-2">
+        <button id="btnCancelDel" class="inline-flex items-center px-3 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50">Annuler</button>
+        <button id="btnConfirmDel" class="inline-flex items-center px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700">Supprimer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase + App -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getDatabase, ref, push, set, update, remove, onValue } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js";
+
+    // Config Firebase — PROJET: consignes-ba836
+    const firebaseConfig = {
+      apiKey: "AIzaSyDB6J47M51E4lX-8VxBoLmAzaF9xwW6BW0",
+      authDomain: "consignes-ba836.firebaseapp.com",
+      databaseURL: "https://consignes-ba836-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "consignes-ba836",
+      storageBucket: "consignes-ba836.appspot.com",
+      messagingSenderId: "1075015242857",
+      appId: "1:1075015242857:web:417d11f0d17177e0c83ef8"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    // ===== Utils =====
+    const $ = (s, r=document) => r.querySelector(s);
+    const $$ = (s, r=document) => [...r.querySelectorAll(s)];
+    const toast = $('#toast');
+    function showToast(text, ok=true){
+      toast.textContent = text;
+      toast.style.background = ok ? '#0f172a' : '#b91c1c';
+      toast.style.display = 'block';
+      setTimeout(()=> toast.style.display='none', 1800);
+    }
+    function escapeHtml(str=''){ return str.replace(/[&<>"]/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+    function toLocalDatetimeValue(d=new Date()){
+      const pad = n => String(n).padStart(2,'0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    function fmtDate(ts){ if(!ts) return '—'; try { return new Date(ts).toLocaleString('fr-FR'); } catch { return '—'; } }
+
+    // ===== Formulaire création =====
+    const form = $('#formAdd');
+    const titre = $('#titre');
+    const couleur = $('#couleur');
+    const contenu = $('#contenu');
+    const startAt = $('#startAt');
+    const endAt = $('#endAt');
+
+    // par défaut : maintenant pour startAt
+    startAt.value = toLocalDatetimeValue(new Date());
+
+    // Editeur simple
+    form.previousElementSibling; // no-op to keep structure clear
+    document.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-cmd]');
+      if (!btn) return;
+      const cmd = btn.dataset.cmd;
+      const val = btn.dataset.value || null;
+      if (cmd === 'formatBlock' && val) document.execCommand(cmd, false, val);
+      else document.execCommand(cmd, false, val);
+      contenu.focus();
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const now = Date.now();
+      const sVal = startAt.value ? Date.parse(startAt.value) : null;
+      const eVal = endAt.value ? Date.parse(endAt.value) : null;
+
+      const data = {
+        titre: titre.value.trim(),
+        couleur: couleur.value,
+        contenuHtml: contenu.innerHTML.trim(),
+        createdAt: now,
+        order: now,
+        startAt: Number.isFinite(sVal) ? sVal : null,
+        endAt: Number.isFinite(eVal) ? eVal : null
+      };
+
+      const newRef = push(ref(db, 'consignes'));
+      await set(newRef, data);
+      form.reset();
+      contenu.innerHTML = '';
+      startAt.value = toLocalDatetimeValue(new Date());
+      endAt.value = '';
+      showToast('Consigne ajoutée ✅');
+    });
+
+    // ===== Liste + filtres =====
+    const list = $('#list');
+    const empty = $('#empty');
+    const search = $('#search');
+    const chips = $$('[data-filter]');
+    let allItems = [];  // toutes les consignes
+    let currentFilter = 'all';
+    let searchTerm = '';
+
+    chips.forEach(ch => {
+      ch.addEventListener('click', () => {
+        chips.forEach(c => c.className = 'px-3 py-1 rounded-full border border-slate-300 bg-white text-slate-700 hover:bg-slate-50');
+        ch.className = 'px-3 py-1 rounded-full border border-slate-300 bg-slate-900 text-white';
+        currentFilter = ch.dataset.filter;
+        render();
+      });
+    });
+
+    search.addEventListener('input', (e) => {
+      searchTerm = e.target.value.toLowerCase();
+      render();
+    });
+
+    onValue(ref(db, 'consignes'), (snap) => {
+      const data = snap.val() || {};
+      allItems = Object.entries(data).map(([id, v]) => ({ id, ...v }));
+      // Tri récents → anciens
+      allItems.sort((a,b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+      render();
+    });
+
+    function passFilter(it) {
+      const now = Date.now();
+      const active = (!it.startAt || now >= it.startAt) && (!it.endAt || now < it.endAt);
+      const planned = it.startAt && now < it.startAt;
+      const ended = it.endAt && now >= it.endAt;
+      if (currentFilter === 'active') return active;
+      if (currentFilter === 'planned') return planned;
+      if (currentFilter === 'ended') return ended;
+      return true; // all
+    }
+
+    function passSearch(it) {
+      if (!searchTerm) return true;
+      const hay = ((it.titre || '') + ' ' + (it.contenuHtml || '')).toLowerCase();
+      return hay.includes(searchTerm);
+    }
+
+    function render() {
+      list.innerHTML = '';
+      const items = allItems.filter(passFilter).filter(passSearch);
+      empty.style.display = items.length ? 'none' : 'block';
+      items.forEach(it => list.appendChild(row(it)));
+    }
+
+    // ===== Suppression (modale) =====
+    let toDeleteId = null;
+    const modalDel = $('#modalDel');
+    $('#btnCancelDel').addEventListener('click', () => { toDeleteId=null; modalDel.style.display='none'; });
+    $('#btnConfirmDel').addEventListener('click', async () => {
+      if (!toDeleteId) return;
+      await remove(ref(db, 'consignes/' + toDeleteId));
+      toDeleteId = null; modalDel.style.display='none';
+      showToast('Consigne supprimée 🗑️');
+    });
+
+    // ===== Ligne =====
+    function row(it) {
+      const li = document.createElement('li');
+      li.className = 'bg-white border border-slate-200 rounded-2xl shadow-sm p-4';
+      li.dataset.id = it.id;
+
+      const now = Date.now();
+      const active = (!it.startAt || now >= it.startAt) && (!it.endAt || now < it.endAt);
+      const planned = it.startAt && now < it.startAt;
+      const ended = it.endAt && now >= it.endAt;
+
+      li.innerHTML = `
+        <div class="flex items-start gap-4">
+          <div class="pill-color h-10" style="background:${it.couleur || '#0ea5e9'}"></div>
+
+          <div class="flex-1 space-y-3">
+            <!-- En-tête -->
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+              <div class="flex items-center gap-2 flex-1 min-w-0">
+                <input class="w-full md:w-[32rem] px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-300" data-field="titre" value="${escapeHtml(it.titre || '')}" />
+                ${planned ? '<span class="text-[11px] px-2 py-0.5 rounded-full border border-amber-200 bg-amber-50 text-amber-800">Programmée</span>' : ''}
+                ${active ? '<span class="text-[11px] px-2 py-0.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-800">Active</span>' : ''}
+                ${ended ? '<span class="text-[11px] px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-slate-700">Terminée</span>' : ''}
+              </div>
+              <div class="text-xs text-slate-500">Créée : ${fmtDate(it.createdAt)}</div>
+            </div>
+
+            <!-- Contenu -->
+            <div class="content-editable w-full px-3 py-2 rounded-lg border border-slate-300 bg-white" data-field="contenuHtml" contenteditable="true">${it.contenuHtml || ''}</div>
+
+            <!-- Bas -->
+            <div class="grid md:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-sm font-medium text-slate-700">Couleur</label>
+                <input type="color" class="h-10 w-full rounded-lg border border-slate-300 p-0" data-field="couleur" value="${it.couleur || '#0ea5e9'}" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700">Début</label>
+                <input type="datetime-local" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-300" data-field="startAt" value="${toLocalDatetimeValue(it.startAt ? new Date(it.startAt) : new Date())}">
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-slate-700">Fin (optionnel)</label>
+                <input type="datetime-local" class="w-full px-3 py-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-slate-300" data-field="endAt" value="${it.endAt ? toLocalDatetimeValue(new Date(it.endAt)) : ''}">
+              </div>
+            </div>
+
+            <div class="flex items-center justify-end gap-2">
+              <button class="inline-flex items-center px-3 py-2 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50" data-action="save">Enregistrer</button>
+              <button class="inline-flex items-center px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700" data-action="delete">Supprimer</button>
+            </div>
+          </div>
+        </div>
+      `;
+
+      // Actions
+      li.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button[data-action]');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        if (action === 'save') {
+          const titreEl = li.querySelector('[data-field="titre"]');
+          const coulEl  = li.querySelector('[data-field="couleur"]');
+          const contEl  = li.querySelector('[data-field="contenuHtml"]');
+          const startEl = li.querySelector('[data-field="startAt"]');
+          const endEl   = li.querySelector('[data-field="endAt"]');
+
+          const sVal = startEl.value ? Date.parse(startEl.value) : null;
+          const eVal = endEl.value ? Date.parse(endEl.value) : null;
+
+          await update(ref(db, 'consignes/' + it.id), {
+            titre: titreEl.value.trim(),
+            couleur: coulEl.value,
+            contenuHtml: contEl.innerHTML.trim(),
+            startAt: Number.isFinite(sVal) ? sVal : null,
+            endAt:   Number.isFinite(eVal) ? eVal : null
+          });
+          showToast('Modifications enregistrées ✅');
+          li.animate([{boxShadow:'0 0 0 0 rgba(16,185,129,0)'},{boxShadow:'0 0 0 8px rgba(16,185,129,0.35)'},{boxShadow:'0 0 0 0 rgba(16,185,129,0)'}],{duration:600,easing:'ease-out'});
+        } else if (action === 'delete') {
+          // Ouvre la modale
+          toDeleteId = it.id;
+          modalDel.style.display = 'flex';
+        }
+      });
+
+      return li;
+    }
+
+    // ===== Export / Import =====
+    $('#exportJson').addEventListener('click', async () => {
+      const { get } = await import("https://www.gstatic.com/firebasejs/9.23.0/firebase-database.js");
+      const snap = await get(ref(db, 'consignes'));
+      const data = snap.val() || {};
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'consignes-export.json';
+      a.click();
+    });
+
+    $('#importJson').addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      try {
+        const data = JSON.parse(text);
+        if (confirm('Écraser les consignes actuelles par celles du fichier ?')) {
+          await set(ref(db, 'consignes'), data);
+          showToast('Import terminé ✅');
+        }
+      } catch (err) {
+        showToast('Import invalide ❌', false);
+      }
+      e.target.value = '';
+    });
+
+    // Expose debug
+    window._db = db;
+  </script>
+</body>
+</html>
